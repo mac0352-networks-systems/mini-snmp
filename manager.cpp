@@ -32,9 +32,9 @@ struct Agent
 vector<pthread_t> services;
 volatile bool run = true;
 Database database;
-Logger logger("logs", "server.log", Logger::OutputMode::BOTH);
+Logger logger("logs", "manager.log", Logger::OutputMode::BOTH);
 
-int serverSocket = -1;
+int managerSocket = -1;
 int done_count = 0;
 int total_agents;
 bool send_request = false;
@@ -47,8 +47,8 @@ void func_sig(int sig)
     run = 0;
 
     // força accept() a sair
-    if (serverSocket != -1) {
-        close(serverSocket);
+    if (managerSocket != -1) {
+        close(managerSocket);
     }
 
     // acorda todas threads
@@ -60,7 +60,7 @@ void func_sig(int sig)
 
 /**
  * @brief Thread of the manager to attend a agent connected
- * @param A Agent Struct that connected to the server.
+ * @param A Agent Struct that connected to the manager.
  */
 void *request_service(void *arg)
 {
@@ -185,21 +185,21 @@ void *accept_agents(void *arg){
     int connection = 0;
 
     logger.info("Criando socket...");
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket < 0)
+    managerSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (managerSocket < 0)
     {
         logger.error("Erro 100: Erro ao criar o socket.");
         return;
     }
     logger.info("Socket criado com sucesso!");
 
-    sockaddr_in serverAddress{};
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(PORT);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    sockaddr_in managerAddress{};
+    managerAddress.sin_family = AF_INET;
+    managerAddress.sin_port = htons(PORT);
+    managerAddress.sin_addr.s_addr = INADDR_ANY;
 
     logger.info("Associando socket à porta " + to_string(PORT) + "...");
-    if (::bind(serverSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+    if (::bind(managerSocket, (struct sockaddr *)&managerAddress, sizeof(managerAddress)) < 0)
     {
         logger.error("Erro 100: Erro ao associar o socket à porta " + to_string(PORT) + ".");
         return;
@@ -207,10 +207,10 @@ void *accept_agents(void *arg){
     logger.info("Socket associado à porta " + to_string(PORT) + " com sucesso!");
 
     logger.info("Colocando o socket no modo de escuta...");
-    if (listen(serverSocket, 5) < 0)
+    if (listen(managerSocket, 5) < 0)
     {
         logger.error("Erro ao colocar o socket no modo de escuta.");
-        close(serverSocket);
+        close(managerSocket);
         return;
     }
 
@@ -227,7 +227,7 @@ void *accept_agents(void *arg){
     {
 
         logger.info("Esperando próxima conexão no socket...");
-        int agentSocket = accept(serverSocket, nullptr, nullptr);
+        int agentSocket = accept(managerSocket, nullptr, nullptr);
         if (agentSocket < 0)
         {
 
@@ -235,7 +235,7 @@ void *accept_agents(void *arg){
                 break;
 
             logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection) + " do cliente no socket.");
-            close(serverSocket);
+            close(managerSocket);
             return;
         }
         logger.info("Cliente " + to_string(connection) + " conectado no socket com sucesso! Pronto para receber mensagens");
@@ -253,7 +253,7 @@ void *accept_agents(void *arg){
         total_agents = connection;
         pthread_mutex_unlock(&request_mutex);
     }
-    close(serverSocket);
+    close(managerSocket);
     logger.info("Socket fechado com sucesso! Servidor encerrado");
 
 }
