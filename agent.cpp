@@ -118,7 +118,7 @@ int main()
             else if(response == "GET INFO\n"){ 
                 cout << "Foi recebido um request do manager:" << response << endl;
                 double value = get_cpu_usage();
-                string data = "dados: " + to_string(value);
+                string data = "dados: " + to_string(value) + '\n';
                 send(agentSocket, data.c_str(), data.length(), 0);
             }
             else
