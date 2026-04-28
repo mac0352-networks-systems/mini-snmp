@@ -1,5 +1,6 @@
 // manager.cpp: main code that send requests to agents to collect data.
 
+#include "log.h"
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -10,8 +11,6 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
-//#include "database.h"
-#include "log.h"
 #include <cstring>
 #include <chrono>
 
@@ -20,22 +19,22 @@ using internal_clock = chrono::steady_clock;
 
 #define PORT 8080
 
-// Auxiliar struct for connection data transfer per thread
 struct Agent
 {
     int connection;
     int agentSocket;
 };
 
-vector<pthread_t> services;
-volatile bool run = true;
-//Database database;
 Logger logger("logs", "manager.log", Logger::OutputMode::BOTH);
+
+vector<pthread_t> services;
+
+volatile bool run = true;
+bool send_request = false;
 
 int managerSocket = -1;
 int done_count = 0;
 int total_agents;
-bool send_request = false;
 
 pthread_mutex_t request_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t request_cond = PTHREAD_COND_INITIALIZER;
