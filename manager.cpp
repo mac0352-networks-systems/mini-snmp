@@ -57,12 +57,11 @@ void func_sig(int sig)
 }
 
 /**
- * @brief Thread of the manager to attend a agent connected
- * @param A Agent Struct that connected to the manager.
+ * @brief Thread of the manager to attend an agent connection
+ * @param arg Agent Struct that connected to the manager.
  */
 void *request_service(void *arg)
 {
-
     Agent *agentinfo = (Agent *)arg;
 
     int connection = agentinfo->connection;
@@ -75,104 +74,80 @@ void *request_service(void *arg)
     int bytesReceived, bytesTotal = 0;
     bool disconnected = false, connection_error = false;
 
-    while(run){
-
+    while(run)
+    {
+        // Wait for the signal to send a request
         pthread_mutex_lock(&request_mutex);
-
-        //thread responsavel pelo agente aguarda comando de fazer request
-        while (!send_request && run) {
+        while (!send_request && run) 
+        {
             pthread_cond_wait(&request_cond, &request_mutex);
         }
-
-        if (!run) {
+        if (!run) 
+        {
             pthread_mutex_unlock(&request_mutex);
             break;
         }
-
         pthread_mutex_unlock(&request_mutex);
 
-        //faz o request
+        // Send a request to the agent
         string request = "GET INFO\n";
-
         send(agentSocket, request.c_str(), request.length(), 0);
 
-
-        //loop de receber a informacao requisitada
+        // Receive the response from the agent
         while(true)
         {
             bytesReceived = recv(agentSocket, buffer, sizeof(buffer), 0);
-        
             if(bytesReceived == 0)
             {
                 disconnected = true;
                 break;
             }
-
             if (bytesReceived < 0){
                 logger.error("Erro 100: Erro ao receber mensagem do agente " + to_string(connection) + ".");
-            connection_error = true;
+                connection_error = true;
                 break;
             }
 
+            // Accumulate the received data
             message = (char *) realloc(message, bytesTotal + bytesReceived);
             memcpy(message + bytesTotal, buffer, bytesReceived);
             bytesTotal += bytesReceived;
 
+            // Stop reading if a newline is found
             if(memchr(buffer, '\n', bytesReceived)) break;
         }
         
         if(disconnected || connection_error) break;
         
+        // Null-terminate the received message
         message = (char *) realloc(message, bytesTotal+1);
         message[bytesTotal-1] = '\0';
         string command(message);
         logger.debug("Mensagem do agente " + to_string(connection) + " do socket: " + command);
 
-        /*
-        string response = command_parser(message, agentSocket);
-        string commandLabel = command_name(command);
-
-        if (is_error_response(response))
-                logger.error("Agente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
-        else
-                logger.info("Agente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
-
-        string responseToSend = response + "\n";
-        if (send(agentSocket, responseToSend.c_str(), responseToSend.length(), 0) < 0)
-        {
-                logger.error("Erro 100: Erro ao enviar resposta para Agente " + to_string(connection) + ".");
-                break;
-        }
-        */
-
-        //terminou o request
-
+        // Notify the manager that this agent has completed its task
         pthread_mutex_lock(&request_mutex);
-
         done_count++;
-
-        if (done_count == total_agents) {
-            pthread_cond_signal(&request_cond); // acorda manager
+        if (done_count == total_agents) 
+        {
+            pthread_cond_signal(&request_cond);
         }
-
         pthread_mutex_unlock(&request_mutex);
 
+        // Free the message buffer
         free(message);
         message = NULL;
         bytesTotal = 0;
-    }
-    
-    /*
-    int releasedCount = database.releaseAllByOwner(agentSocket);
-    if (releasedCount > 0)
-        logger.info("Agente " + to_string(connection) + " desconectou e liberou " + to_string(releasedCount) + " recurso(s)");
-    */
 
+    }
+
+    // Close the agent's socket and clean up
     close(agentSocket);
     logger.info("Agente " + to_string(connection) + " desconectado do socket.");
 
     delete agentinfo;
     return NULL;
+    
 }
 
 /**
