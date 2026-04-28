@@ -20,6 +20,7 @@ using namespace std;
 
 double get_cpu_usage() 
 {
+
 #ifdef __linux__
     static long prev_idle = 0, prev_total = 0;
 
@@ -67,11 +68,12 @@ double get_cpu_usage()
     return 0.0;
 
 #endif
-}
 
+}
 
 int main()
 {
+
     Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
 
     logger.info("Criando socket...");
