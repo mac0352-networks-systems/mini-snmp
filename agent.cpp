@@ -1,4 +1,4 @@
-// agent.cpp: receive requests from meanager and return current data.
+// agent.cpp: receive requests from menager and return current data.
 
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -20,8 +20,8 @@
 
 using namespace std;
 
-double get_cpu_usage() {
-
+double get_cpu_usage() 
+{
 #ifdef __linux__
     static long prev_idle = 0, prev_total = 0;
 
@@ -67,13 +67,14 @@ double get_cpu_usage() {
 
 #else
     return 0.0;
+
 #endif
 }
 
 
 int main()
 {
-    Logger logger("logs", "client.log", Logger::OutputMode::BOTH);
+    Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
 
     logger.info("Criando socket...");
     int agentSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -84,13 +85,13 @@ int main()
     }
     logger.info("Socket criado com sucesso!");
 
-    sockaddr_in serverAddress{};
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(8080);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    sockaddr_in managerAddress{};
+    managerAddress.sin_family = AF_INET;
+    managerAddress.sin_port = htons(8080);
+    managerAddress.sin_addr.s_addr = INADDR_ANY;
 
     logger.info("Conectando ao manager...");
-    if (connect(agentSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+    if (connect(agentSocket, (struct sockaddr *)&managerAddress, sizeof(managerAddress)) < 0)
     {
         logger.error("Erro 100: Erro ao conectar ao manager.");
         close(agentSocket);
