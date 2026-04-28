@@ -147,13 +147,15 @@ void *request_service(void *arg)
 
     delete agentinfo;
     return NULL;
-    
+
 }
 
 /**
- * @brief Thread of the manager to attend to new connections
+ * @brief Function to accept connections from SNMP agents and handle them in separate threads.
+ * @param arg Pointer to arguments passed to the thread (not used in this implementation).
  */
-void *accept_agents(void *arg){
+void *accept_agents(void *arg)
+{
 
     int connection = 0;
 
@@ -225,10 +227,13 @@ void *accept_agents(void *arg){
         pthread_mutex_lock(&request_mutex);
         total_agents = connection;
         pthread_mutex_unlock(&request_mutex);
+
     }
+
     close(managerSocket);
     logger.info("Socket fechado com sucesso! Servidor encerrado");
     return nullptr;
+    
 }
 
 int main()
