@@ -1,27 +1,26 @@
 // agent.cpp: receive requests from menager and return current data.
 
+#include "log.h"
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <iostream>
-#include "log.h"
-#include <string>
 
 #ifdef __linux__
-#include <sys/sysinfo.h>   // RAM
-#include <unistd.h>
-#include <fstream>         // /proc
-#include <sstream>
-
+#include <sys/sysinfo.h>
 #elif __APPLE__
-#include <sys/sysctl.h>    // CPU + RAM
-#include <mach/mach.h>     // RAM detalhada
+#include <mach/mach.h>
+#include <sys/sysctl.h>
 #endif
 
 using namespace std;
 
 double get_cpu_usage() 
 {
+
 #ifdef __linux__
     static long prev_idle = 0, prev_total = 0;
 
@@ -69,11 +68,12 @@ double get_cpu_usage()
     return 0.0;
 
 #endif
-}
 
+}
 
 int main()
 {
+
     Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
 
     logger.info("Criando socket...");
