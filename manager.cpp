@@ -39,21 +39,22 @@ int total_agents;
 pthread_mutex_t request_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t request_cond = PTHREAD_COND_INITIALIZER;
 
+
+/**
+ * @brief Signal handler function to gracefully terminate the manager process. 
+ * @param sig The signal number that triggered the handler.
+ */
 void func_sig(int sig)
 {
     run = 0;
-
-    // força accept() a sair
-    if (managerSocket != -1) {
+    if (managerSocket != -1) 
+    {
         close(managerSocket);
     }
-
-    // acorda todas threads
     pthread_mutex_lock(&request_mutex);
     pthread_cond_broadcast(&request_cond);
     pthread_mutex_unlock(&request_mutex);
 }
-
 
 /**
  * @brief Thread of the manager to attend a agent connected
