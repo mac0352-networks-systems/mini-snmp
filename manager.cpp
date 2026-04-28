@@ -1,6 +1,5 @@
 // manager.cpp: main code that send requests to agents to collect data.
 
-// libraries
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -11,13 +10,13 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
-#include "database.h"
+//#include "database.h"
 #include "log.h"
 #include <cstring>
 #include <chrono>
 
 using namespace std;
-using clock = chrono::steady_clock;
+using internal_clock = chrono::steady_clock;
 
 #define PORT 8080
 
@@ -28,10 +27,9 @@ struct Agent
     int agentSocket;
 };
 
-// Global structures and variables
 vector<pthread_t> services;
 volatile bool run = true;
-Database database;
+//Database database;
 Logger logger("logs", "manager.log", Logger::OutputMode::BOTH);
 
 int managerSocket = -1;
@@ -130,20 +128,22 @@ void *request_service(void *arg)
         string command(message);
         logger.debug("Mensagem do agente " + to_string(connection) + " do socket: " + command);
 
+        /*
         string response = command_parser(message, agentSocket);
         string commandLabel = command_name(command);
 
         if (is_error_response(response))
-                logger.error("Cliente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
+                logger.error("Agente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
         else
-                logger.info("Cliente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
+                logger.info("Agente " + to_string(connection) + " -> " + commandLabel + " | " + trim_newline(response));
 
         string responseToSend = response + "\n";
         if (send(agentSocket, responseToSend.c_str(), responseToSend.length(), 0) < 0)
         {
-                logger.error("Erro 100: Erro ao enviar resposta para cliente " + to_string(connection) + ".");
+                logger.error("Erro 100: Erro ao enviar resposta para Agente " + to_string(connection) + ".");
                 break;
         }
+        */
 
         //terminou o request
 
@@ -157,21 +157,19 @@ void *request_service(void *arg)
 
         pthread_mutex_unlock(&request_mutex);
 
-
-        
-       
-
         free(message);
         message = NULL;
         bytesTotal = 0;
     }
     
+    /*
     int releasedCount = database.releaseAllByOwner(agentSocket);
     if (releasedCount > 0)
-        logger.info("Cliente " + to_string(connection) + " desconectou e liberou " + to_string(releasedCount) + " recurso(s)");
+        logger.info("Agente " + to_string(connection) + " desconectou e liberou " + to_string(releasedCount) + " recurso(s)");
+    */
 
     close(agentSocket);
-    logger.info("Cliente " + to_string(connection) + " desconectado do socket.");
+    logger.info("Agente " + to_string(connection) + " desconectado do socket.");
 
     delete agentinfo;
     return NULL;
@@ -189,7 +187,7 @@ void *accept_agents(void *arg){
     if (managerSocket < 0)
     {
         logger.error("Erro 100: Erro ao criar o socket.");
-        return;
+        return nullptr;
     }
     logger.info("Socket criado com sucesso!");
 
@@ -202,7 +200,7 @@ void *accept_agents(void *arg){
     if (::bind(managerSocket, (struct sockaddr *)&managerAddress, sizeof(managerAddress)) < 0)
     {
         logger.error("Erro 100: Erro ao associar o socket à porta " + to_string(PORT) + ".");
-        return;
+        return nullptr;
     }
     logger.info("Socket associado à porta " + to_string(PORT) + " com sucesso!");
 
@@ -211,7 +209,7 @@ void *accept_agents(void *arg){
     {
         logger.error("Erro ao colocar o socket no modo de escuta.");
         close(managerSocket);
-        return;
+        return nullptr;
     }
 
     logger.info("Socket colocado no modo de escuta com sucesso!");
@@ -234,11 +232,11 @@ void *accept_agents(void *arg){
             if (errno == EINTR)
                 break;
 
-            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection) + " do cliente no socket.");
+            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection) + " do Agente no socket.");
             close(managerSocket);
-            return;
+            return nullptr;
         }
-        logger.info("Cliente " + to_string(connection) + " conectado no socket com sucesso! Pronto para receber mensagens");
+        logger.info("Agente " + to_string(connection) + " conectado no socket com sucesso! Pronto para receber mensagens");
 
         services.emplace_back();
 
@@ -255,11 +253,8 @@ void *accept_agents(void *arg){
     }
     close(managerSocket);
     logger.info("Socket fechado com sucesso! Servidor encerrado");
-
+    return nullptr;
 }
-
-
-
 
 int main()
 {
@@ -267,10 +262,10 @@ int main()
     pthread_t listener;
     pthread_create(&listener, NULL, accept_agents, NULL);
     
-    auto past = clock::now();
+    auto past = internal_clock::now();
 
     while (run) {
-        auto current = clock::now();
+        auto current = internal_clock::now();
 
         if (current - past >= std::chrono::seconds(5)) {
             past = current;
