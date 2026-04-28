@@ -233,43 +233,36 @@ void *accept_agents(void *arg)
     close(managerSocket);
     logger.info("Socket fechado com sucesso! Servidor encerrado");
     return nullptr;
-    
+
 }
 
 int main()
 {
-    //thread para lidar com novos agentes
     pthread_t listener;
     pthread_create(&listener, NULL, accept_agents, NULL);
     
     auto past = internal_clock::now();
 
-    while (run) {
+    while (run) 
+    {
         auto current = internal_clock::now();
 
         if (current - past >= std::chrono::seconds(5)) {
             past = current;
 
             pthread_mutex_lock(&request_mutex);
-
             send_request = true;
             done_count = 0;
-
             pthread_cond_broadcast(&request_cond);
-
-            // espera todo mundo terminar
             while (done_count < total_agents && run) {
                 pthread_cond_wait(&request_cond, &request_mutex);
             }
-
-            // reseta
             send_request = false;
-
             pthread_mutex_unlock(&request_mutex);
 
-            //faz o print com informacoes atualizadas
-            
         }
     }
+
     return 0;
+
 }
