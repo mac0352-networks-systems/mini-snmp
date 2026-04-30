@@ -34,10 +34,13 @@ bool send_request = false;
 
 int managerSocket = -1;
 int done_count = 0;
+int request_iteration = 0;
 int total_agents;
 
 pthread_mutex_t request_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t request_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t request_cond  = PTHREAD_COND_INITIALIZER; // main acordam agentes
+pthread_cond_t done_cond     = PTHREAD_COND_INITIALIZER; // agentes acordam main
+
 
 
 /**
@@ -73,12 +76,13 @@ void *request_service(void *arg)
     char *message = NULL;
     int bytesReceived, bytesTotal = 0;
     bool disconnected = false, connection_error = false;
+    int last_iteration = -1;
 
     while(run)
     {
         // Wait for the signal to send a request
         pthread_mutex_lock(&request_mutex);
-        while (!send_request && run) 
+        while (last_iteration == request_iteration && run && run) 
         {
             pthread_cond_wait(&request_cond, &request_mutex);
         }
@@ -87,6 +91,7 @@ void *request_service(void *arg)
             pthread_mutex_unlock(&request_mutex);
             break;
         }
+	last_iteration = request_iteration;
         pthread_mutex_unlock(&request_mutex);
 
         // Send a request to the agent
@@ -130,7 +135,7 @@ void *request_service(void *arg)
         done_count++;
         if (done_count == total_agents) 
         {
-            pthread_cond_signal(&request_cond);
+            pthread_cond_signal(&done_cond);
         }
         pthread_mutex_unlock(&request_mutex);
 
@@ -251,11 +256,12 @@ int main()
             past = current;
 
             pthread_mutex_lock(&request_mutex);
+	    request_iteration++;
             send_request = true;
             done_count = 0;
             pthread_cond_broadcast(&request_cond);
             while (done_count < total_agents && run) {
-                pthread_cond_wait(&request_cond, &request_mutex);
+                pthread_cond_wait(&done_cond, &request_mutex);
             }
             send_request = false;
             pthread_mutex_unlock(&request_mutex);
