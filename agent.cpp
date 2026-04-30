@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <iostream>
 #include "log.h"
-#include <string>
+#include <cstring>
 
 #ifdef __linux__
 #include <sys/sysinfo.h>   // RAM
@@ -72,6 +72,37 @@ double get_cpu_usage()
 }
 
 
+double get_memory_usage()
+{
+    #if defined(__linux__)
+        FILE* fp = fopen("/proc/self/status", "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                if (strncmp(line, "VmRSS:", 6) == 0) {
+                    double value_kb;
+                    // Lendo o valor numérico como double para manter a precisão
+                    sscanf(line + 6, "%lf", &value_kb);
+                    fclose(fp);
+                    return value_kb / 1024.0;
+                }
+            }
+            fclose(fp);
+        }
+
+    #elif defined(__APPLE__) && defined(__MACH__)
+        struct mach_task_basic_info info;
+        mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+
+        if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) == KERN_SUCCESS) {
+            // Convertendo bytes diretamente para double em MB
+            return (double)info.resident_size / (1024.0 * 1024.0);
+        }
+    #endif
+    return -1.0; 
+}
+
+
 int main()
 {
     Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
@@ -117,8 +148,10 @@ int main()
             }
             else if(response == "GET INFO\n"){ 
                 cout << "Foi recebido um request do manager:" << response << endl;
-                double value = get_cpu_usage();
-                string data = "dados: " + to_string(value) + '\n';
+                double cpu_value = get_cpu_usage();
+                double memory_value = get_memory_usage();
+                string data = "CPU(%): " + to_string(cpu_value) + "% / " + 
+                              "MEMORY(%) "+ to_string(memory_value) + "%" + '\n';
                 send(agentSocket, data.c_str(), data.length(), 0);
             }
             else

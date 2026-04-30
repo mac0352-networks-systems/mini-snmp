@@ -169,6 +169,11 @@ void *request_service(void *arg)
     */
 
     close(agentSocket);
+    
+    pthread_mutex_lock(&request_mutex);
+    total_agents--;
+    pthread_mutex_unlock(&request_mutex);
+    
     logger.info("Agente " + to_string(connection) + " desconectado do socket.");
 
     delete agentinfo;
