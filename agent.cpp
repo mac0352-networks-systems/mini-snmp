@@ -1,5 +1,10 @@
 // agent.cpp: receive requests from menager and return current data.
 
+#include "log.h"
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -9,20 +14,17 @@
 #include <sys/statvfs.h>
 
 #ifdef __linux__
-#include <sys/sysinfo.h>   // RAM
-#include <unistd.h>
-#include <fstream>         // /proc
-#include <sstream>
-
+#include <sys/sysinfo.h>
 #elif __APPLE__
-#include <sys/sysctl.h>    // CPU + RAM
-#include <mach/mach.h>     // RAM detalhada
+#include <mach/mach.h>
+#include <sys/sysctl.h>
 #endif
 
 using namespace std;
 
 double get_cpu_usage() 
 {
+
 #ifdef __linux__
     static long prev_idle = 0, prev_total = 0;
 
@@ -49,14 +51,24 @@ double get_cpu_usage()
 #elif defined(__APPLE__)
     static long prev_user = 0, prev_system = 0, prev_idle = 0;
 
-    long user, system, idle;
-    get_cpu_times(user, system, idle);
+    host_cpu_load_info_data_t cpu_info;
+    mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
 
-    long prev_total = prev_user + prev_system + prev_idle;
-    long total = user + system + idle;
+    if (host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO,
+                        (host_info_t)&cpu_info, &count) != KERN_SUCCESS) {
+        return 0.0;
+    }
 
-    long diff_total = total - prev_total;
-    long diff_idle = idle - prev_idle;
+    long user   = cpu_info.cpu_ticks[CPU_STATE_USER];
+    long system = cpu_info.cpu_ticks[CPU_STATE_SYSTEM];
+    long idle   = cpu_info.cpu_ticks[CPU_STATE_IDLE];
+    long nice   = cpu_info.cpu_ticks[CPU_STATE_NICE];
+
+    long prev_total  = prev_user + prev_system + prev_idle;
+    long total       = user + system + idle + nice;
+    long diff_total  = total - prev_total;
+    long diff_idle   = idle - prev_idle;
+
 
     prev_user = user;
     prev_system = system;
@@ -70,8 +82,8 @@ double get_cpu_usage()
     return 0.0;
 
 #endif
-}
 
+}
 
 double get_memory_usage()
 {
@@ -124,6 +136,7 @@ double get_disk_usage(const char* path)
 
 int main()
 {
+
     Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
 
     logger.info("Criando socket...");
