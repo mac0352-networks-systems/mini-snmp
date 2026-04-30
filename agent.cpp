@@ -6,6 +6,7 @@
 #include <iostream>
 #include "log.h"
 #include <cstring>
+#include <sys/statvfs.h>
 
 #ifdef __linux__
 #include <sys/sysinfo.h>   // RAM
@@ -103,6 +104,24 @@ double get_memory_usage()
 }
 
 
+double get_disk_usage(const char* path)
+{
+    struct statvfs stat;
+
+    if (statvfs(path, &stat) != 0)
+        return -1.0;
+
+    double total = (double)stat.f_blocks * stat.f_frsize;
+    double free  = (double)stat.f_bavail * stat.f_frsize; // df-like
+    double used  = total - free;
+
+    if (total == 0)
+        return -1.0;
+
+    return (used / total) * 100.0;
+}
+
+
 int main()
 {
     Logger logger("logs", "agent.log", Logger::OutputMode::BOTH);
@@ -150,8 +169,10 @@ int main()
                 cout << "Foi recebido um request do manager:" << response << endl;
                 double cpu_value = get_cpu_usage();
                 double memory_value = get_memory_usage();
+                double disk_total_usage = get_disk_usage("/");
                 string data = "CPU(%): " + to_string(cpu_value) + "% / " + 
-                              "MEMORY(%) "+ to_string(memory_value) + "%" + '\n';
+                              "MEMORY(%) "+ to_string(memory_value) + "% / " +
+                              "DISK USAGE(%) " + to_string(disk_total_usage) + "%"+ '\n';
                 send(agentSocket, data.c_str(), data.length(), 0);
             }
             else
