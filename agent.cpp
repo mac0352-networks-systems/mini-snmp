@@ -180,11 +180,13 @@ int main()
             }
             else if(response == "GET INFO\n"){ 
                 cout << "Foi recebido um request do manager:" << response << endl;
+                cout << "Retornando resposta: RESPONSE <dados do agente>\n" << endl;
+                
                 double cpu_value = get_cpu_usage();
                 double memory_value = get_memory_usage();
                 double disk_total_usage = get_disk_usage("/");
-                string data = "CPU(%): " + to_string(cpu_value) + "% / " + 
-                              "MEMORY(%) "+ to_string(memory_value) + "% / " +
+                string data = "RESPONSE: CPU(%): " + to_string(cpu_value) + "% | " + 
+                              "MEMORY(%) "+ to_string(memory_value) + "% | " +
                               "DISK USAGE(%) " + to_string(disk_total_usage) + "%"+ '\n';
                 send(agentSocket, data.c_str(), data.length(), 0);
             }

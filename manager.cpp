@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <cstring>
 #include <chrono>
+#include <time.h>
 
 using namespace std;
 using internal_clock = chrono::steady_clock;
@@ -50,13 +51,12 @@ pthread_cond_t done_cond     = PTHREAD_COND_INITIALIZER; // agentes acordam main
 void func_sig(int sig)
 {
     run = 0;
-    if (managerSocket != -1) 
-    {
+
+    if (managerSocket != -1)
         close(managerSocket);
-    }
-    pthread_mutex_lock(&request_mutex);
+
     pthread_cond_broadcast(&request_cond);
-    pthread_mutex_unlock(&request_mutex);
+    pthread_cond_broadcast(&done_cond);
 }
 
 /**
@@ -82,7 +82,7 @@ void *request_service(void *arg)
     {
         // Wait for the signal to send a request
         pthread_mutex_lock(&request_mutex);
-        while (last_iteration == request_iteration && run && run) 
+        while (last_iteration == request_iteration && run) 
         {
             pthread_cond_wait(&request_cond, &request_mutex);
         }
@@ -91,7 +91,7 @@ void *request_service(void *arg)
             pthread_mutex_unlock(&request_mutex);
             break;
         }
-	last_iteration = request_iteration;
+	    last_iteration = request_iteration;
         pthread_mutex_unlock(&request_mutex);
 
         // Send a request to the agent
@@ -107,7 +107,11 @@ void *request_service(void *arg)
                 disconnected = true;
                 break;
             }
-            if (bytesReceived < 0){
+            if (bytesReceived < 0)
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    continue;
+
                 logger.error("Erro 100: Erro ao receber mensagem do agente " + to_string(connection) + ".");
                 connection_error = true;
                 break;
@@ -178,6 +182,13 @@ void *accept_agents(void *arg)
     }
     logger.info("Socket criado com sucesso!");
 
+
+    struct timeval tv;
+    tv.tv_sec = 3;   // acorda a cada 1 segundo
+    tv.tv_usec = 0;
+
+    setsockopt(managerSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
     sockaddr_in managerAddress{};
     managerAddress.sin_family = AF_INET;
     managerAddress.sin_port = htons(PORT);
@@ -215,14 +226,22 @@ void *accept_agents(void *arg)
         int agentSocket = accept(managerSocket, nullptr, nullptr);
         if (agentSocket < 0)
         {
-
             if (errno == EINTR)
                 break;
 
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+
             logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection) + " do Agente no socket.");
-            close(managerSocket);
-            return nullptr;
+            continue;
         }
+
+        struct timeval tv;
+        tv.tv_sec = 3;
+        tv.tv_usec = 0;
+
+        setsockopt(agentSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
         logger.info("Agente " + to_string(connection) + " conectado no socket com sucesso! Pronto para receber mensagens");
 
         services.emplace_back();
@@ -257,11 +276,12 @@ int main()
     {
         auto current = internal_clock::now();
 
-        if (current - past >= std::chrono::seconds(5)) {
+        if (current - past >= std::chrono::seconds(3))
+        {
             past = current;
 
             pthread_mutex_lock(&request_mutex);
-	    request_iteration++;
+            request_iteration++;
             send_request = true;
             done_count = 0;
             pthread_cond_broadcast(&request_cond);
@@ -270,10 +290,18 @@ int main()
             }
             send_request = false;
             pthread_mutex_unlock(&request_mutex);
-
         }
     }
 
-    return 0;
+    pthread_mutex_lock(&request_mutex);
+    pthread_cond_broadcast(&request_cond);
+    pthread_cond_broadcast(&done_cond);
+    pthread_mutex_unlock(&request_mutex);
 
+    pthread_join(listener, NULL);
+
+    for (auto &t : services)
+        pthread_join(t, NULL);
+
+    return 0;
 }
