@@ -1,4 +1,4 @@
-// agent.cpp: receive requests from menager and return current data.
+// agent.cpp: receive requests from manager and return current data.
 
 #include "log.h"
 #include <fstream>
