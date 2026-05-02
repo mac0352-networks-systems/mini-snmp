@@ -65,10 +65,10 @@ void func_sig(int sig)
  */
 void *request_service(void *arg)
 {
-    Agent *agentinfo = (Agent *)arg;
+    Agent *agent_info = (Agent *)arg;
 
-    int connection = agentinfo->connection;
-    int agentSocket = agentinfo->agentSocket;
+    int connection = agent_info->connection;
+    int agentSocket = agent_info->agentSocket;
 
     logger.info("Agente " + to_string(connection) + " iniciou sessão de atendimento.");
 
@@ -159,7 +159,7 @@ void *request_service(void *arg)
     
     logger.info("Agente " + to_string(connection) + " desconectado do socket.");
 
-    delete agentinfo;
+    delete agent_info;
     return NULL;
 
 }
@@ -171,7 +171,7 @@ void *request_service(void *arg)
 void *accept_agents(void *arg)
 {
 
-    int connection = 0;
+    int connection_count = 0;
 
     logger.info("Criando socket...");
     managerSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -184,7 +184,7 @@ void *accept_agents(void *arg)
 
 
     struct timeval tv;
-    tv.tv_sec = 3;   // acorda a cada 1 segundo
+    tv.tv_sec = 3;
     tv.tv_usec = 0;
 
     setsockopt(managerSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
@@ -232,7 +232,7 @@ void *accept_agents(void *arg)
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
 
-            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection) + " do Agente no socket.");
+            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection_count) + " do Agente no socket.");
             continue;
         }
 
@@ -242,19 +242,19 @@ void *accept_agents(void *arg)
 
         setsockopt(agentSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-        logger.info("Agente " + to_string(connection) + " conectado no socket com sucesso! Pronto para receber mensagens");
+        logger.info("Agente " + to_string(connection_count) + " conectado no socket com sucesso! Pronto para receber mensagens");
 
         services.emplace_back();
 
-        Agent *agentinfo = new Agent;
-        agentinfo->connection = connection;
-        agentinfo->agentSocket = agentSocket;
+        Agent *agent_info = new Agent;
+        agent_info->connection = connection_count;
+        agent_info->agentSocket = agentSocket;
 
-        pthread_create(&services.back(), NULL, request_service, agentinfo);
-        connection++;
+        pthread_create(&services.back(), NULL, request_service, agent_info);
+        connection_count++;
         
         pthread_mutex_lock(&request_mutex);
-        total_agents = connection;
+        total_agents = connection_count;
         pthread_mutex_unlock(&request_mutex);
 
     }
@@ -276,7 +276,7 @@ int main()
     {
         auto current = internal_clock::now();
 
-        if (current - past >= std::chrono::seconds(3))
+        if (current - past >= chrono::seconds(3))
         {
             past = current;
 
