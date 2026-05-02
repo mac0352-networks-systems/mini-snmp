@@ -171,7 +171,7 @@ void *request_service(void *arg)
 void *accept_agents(void *arg)
 {
 
-    int connection_count = 0;
+    int connection_id = 0;
 
     logger.info("Criando socket...");
     managerSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -232,7 +232,7 @@ void *accept_agents(void *arg)
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
 
-            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection_count) + " do Agente no socket.");
+            logger.error("Erro 100: Erro ao aceitar conexão " + to_string(connection_id) + " do Agente no socket.");
             continue;
         }
 
@@ -242,19 +242,19 @@ void *accept_agents(void *arg)
 
         setsockopt(agentSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-        logger.info("Agente " + to_string(connection_count) + " conectado no socket com sucesso! Pronto para receber mensagens");
+        logger.info("Agente " + to_string(connection_id) + " conectado no socket com sucesso! Pronto para receber mensagens");
 
         services.emplace_back();
 
         Agent *agent_info = new Agent;
-        agent_info->connection = connection_count;
+        agent_info->connection = connection_id;
         agent_info->agentSocket = agentSocket;
 
         pthread_create(&services.back(), NULL, request_service, agent_info);
-        connection_count++;
+        connection_id++;
         
         pthread_mutex_lock(&request_mutex);
-        total_agents = connection_count;
+        total_agents++;
         pthread_mutex_unlock(&request_mutex);
 
     }
